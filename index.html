@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>风电智慧运维台账平台</title>
+<link rel="stylesheet" href="css/style.css?v=1110d">
+</head>
+<body>
+<div id="app">
+  <!-- 顶部栏 -->
+  <header id="topbar">
+    <div class="brand">🌀 风电智慧运维台账平台</div>
+    <nav id="nav">
+      <button class="nav-btn active" data-view="dashboard">驾驶舱</button>
+      <button class="nav-btn" data-view="ledger">机组台账</button>
+      <button class="nav-btn" data-view="entry">缺陷录入</button>
+      <button class="nav-btn" data-view="stats">统计分析</button>
+      <button class="nav-btn" data-view="data">数据管理</button>
+    </nav>
+    <div id="treeTabs" class="top-filter"></div>
+    <div class="top-right">
+      <button id="bellBtn" class="bell" title="到期提醒">🔔<span id="bellBadge" class="badge hidden">0</span></button>
+      <button id="logoutBtn" class="logout-btn" title="退出登录">退出</button>
+    </div>
+  </header>
+
+  <div id="main">
+    <!-- 侧栏：机组树 -->
+    <aside id="sidebar">
+      <div class="side-head">
+        <span>机组列表</span>
+        <button id="addUnitBtn" class="mini-btn" title="新增机组">＋</button>
+      </div>
+      <div id="unitTree"></div>
+    </aside>
+
+    <!-- 内容区 -->
+    <section id="content">
+      <!-- 驾驶舱 -->
+      <div class="view active" id="view-dashboard">
+        <div class="view-title">场站驾驶舱 <span class="sub" id="dashSummary"></span></div>
+        <div id="healthBar" class="health-bar"></div>
+        <div id="unitCards" class="unit-cards"></div>
+      </div>
+
+      <!-- 机组台账 -->
+      <div class="view" id="view-ledger">
+        <div id="ledgerEmpty" class="empty-tip">← 请从左侧选择一台机组查看台账</div>
+        <div id="ledgerBody" class="hidden">
+          <div class="ledger-head">
+            <div>
+              <span id="ldUnitName" class="ld-name"></span>
+              <span id="ldUnitMeta" class="ld-meta"></span>
+              <span id="ldHealth" class="health-badge"></span>
+            </div>
+            <div class="ledger-actions">
+              <button id="ldDeleteUnit" class="btn danger hidden">删除设备</button>
+              <button id="ldAddDefect" class="btn primary">＋ 录入缺陷</button>
+              <button id="ldExport" class="btn">导出台账 Excel</button>
+              <button id="ldPrint" class="btn">打印图文报告</button>
+            </div>
+          </div>
+          <div class="ledger-grid">
+            <div class="panel3d">
+              <div class="panel-title">3D 缺陷定位 <span class="sub">拖拽旋转 · 滚轮缩放 · 点击标记看详情</span>
+                <label class="ghost-toggle"><input type="checkbox" id="ghostToggle" checked> 透视外壳</label>
+                <button id="resetView" class="btn sm" style="margin-left:8px">复位视角</button>
+                <button id="baseView" class="btn sm" style="margin-left:8px">塔基视图</button>
+              </div>
+              <div id="viewer3dBox" class="viewer-box"></div>
+              <div id="legend3d" class="legend"></div>
+            </div>
+            <div class="panelList">
+              <div class="panel-title">缺陷清单
+                <span class="filters">
+                  <select id="fltLevel"><option value="">全部等级</option></select>
+                  <select id="fltStatus"><option value="">全部状态</option></select>
+                  <select id="fltPart"><option value="">全部部位</option></select>
+                </span>
+              </div>
+              <div id="defectList" class="defect-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 缺陷录入 -->
+      <div class="view" id="view-entry">
+        <div class="view-title">缺陷录入 <span class="sub">四级标准化字典，杜绝随意填写</span></div>
+        <form id="entryForm" class="entry-form">
+          <div class="entry-filter-grid">
+            <div class="form-row">
+              <label>设备类型</label>
+              <div id="fUnitType" class="entry-segmented" role="group" aria-label="设备类型筛选">
+                <button type="button" class="entry-seg active" data-type="">全部</button>
+                <button type="button" class="entry-seg" data-type="turbine">风机</button>
+                <button type="button" class="entry-seg" data-type="transformer">箱变</button>
+              </div>
+            </div>
+            <div class="form-row">
+              <label for="fUnitSearch">搜索设备编号</label>
+              <div class="unit-search-line">
+                <input id="fUnitSearch" type="search" placeholder="输入 68、#68 或名称" autocomplete="off">
+                <span id="fUnitCount" class="unit-search-count"></span>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>机组 / 设备 *</label>
+            <select id="fUnit" required></select>
+          </div>
+          <div class="form-row" id="fBrandRow" style="display:none">
+            <label>箱变厂家 *</label>
+            <select id="fBrand"></select>
+            <div class="hint" id="fBrandHint" style="font-size:12px;color:var(--sub);margin-top:4px">
+              选择厂家后，3D 模型与部件定位按对应实物切换
+            </div>
+          </div>
+          <div class="form-row">
+            <label>缺陷部位 *</label>
+            <select id="fPart" required><option value="">请先选择设备</option></select>
+          </div>
+          <div class="form-row">
+            <label>缺陷类型 *</label>
+            <select id="fCat" required><option value="">请先选择部位</option></select>
+          </div>
+          <div class="form-row">
+            <label>严重等级 *</label>
+            <div id="fLevel" class="level-picker"></div>
+          </div>
+          <div class="form-row">
+            <label>缺陷描述 *</label>
+            <textarea id="fDesc" rows="3" placeholder="例：1#叶片中部前缘腐蚀约30cm，未见分层" required></textarea>
+          </div>
+          <div class="form-row-2col">
+            <div>
+              <label>发现日期 *</label>
+              <input type="date" id="fDate" required>
+            </div>
+            <div>
+              <label>填报人 *</label>
+              <input type="text" id="fReporter" placeholder="姓名" required>
+            </div>
+          </div>
+          <div class="form-row-2col">
+            <div>
+              <label>复检提醒周期</label>
+              <select id="fRemind">
+                <option value="0">不提醒</option>
+                <option value="7">每 7 天</option>
+                <option value="30">每 30 天</option>
+                <option value="90">每 90 天</option>
+                <option value="180">每 180 天</option>
+              </select>
+            </div>
+            <div>
+              <label>现场照片（可多选）</label>
+              <input type="file" id="fPhotos" accept="image/*" multiple>
+            </div>
+          </div>
+          <div id="photoPreview" class="photo-preview"></div>
+          <div class="form-actions">
+            <button type="submit" class="btn primary big">提交缺陷</button>
+            <button type="reset" class="btn big">清空</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- 统计分析 -->
+      <div class="view" id="view-stats">
+        <div class="view-title">统计分析</div>
+        <div id="statsBody" class="stats-grid"></div>
+      </div>
+
+      <!-- 数据管理 -->
+      <div class="view" id="view-data">
+        <div class="view-title">数据管理</div>
+        <div class="data-panel">
+          <div class="data-card">
+            <h3>📦 备份数据</h3>
+            <p>导出全部机组、缺陷、照片为 JSON 文件，建议每周备份一次。</p>
+            <button id="backupBtn" class="btn primary">导出备份</button>
+          </div>
+          <div class="data-card">
+            <h3>♻️ 恢复数据</h3>
+            <p>从备份文件恢复（会覆盖当前全部数据）。</p>
+            <input type="file" id="restoreFile" accept=".json">
+          </div>
+          <div class="data-card">
+            <h3>🧪 示例数据</h3>
+            <p>载入 3 台风机 + 2 台箱变的演示缺陷数据，便于体验。</p>
+            <button id="seedBtn" class="btn">载入示例数据</button>
+          </div>
+          <div class="data-card danger">
+            <h3>🗑 清空数据</h3>
+            <p>删除本机全部数据，不可恢复，请先备份。</p>
+            <button id="wipeBtn" class="btn danger">清空全部数据</button>
+          </div>
+          <div class="data-card">
+            <h3>🗺 二期规划</h3>
+            <p>集电线路 / 杆塔 / 地埋电缆 已预留设备类型接口，框架可无缝扩展。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- 云端登录 / 初始化配置 -->
+<div id="authScreen" class="auth-screen hidden">
+  <div class="auth-shell">
+    <div class="auth-brand">风电智慧运维台账平台</div>
+    <p class="auth-sub">云端统一台账</p>
+
+    <div id="authSetup" class="auth-setup hidden">
+      <h2>需要连接云数据库</h2>
+      <p>请先在 Supabase 创建项目并依次执行 <code>cloud/steps</code> 中的 18 个 SQL 文件，然后把项目地址和公开密钥填入 <code>js/cloud-config.js</code>。</p>
+      <p class="auth-note">管理员密钥不要写入网页文件。</p>
+    </div>
+
+    <form id="loginForm" class="auth-form hidden">
+      <label for="authEmail">登录邮箱</label>
+      <input id="authEmail" type="email" autocomplete="username" required>
+      <label for="authPassword">密码</label>
+      <input id="authPassword" type="password" autocomplete="current-password" required>
+      <button id="loginBtn" class="btn primary auth-submit" type="submit">登录</button>
+    </form>
+
+    <div id="authError" class="auth-error hidden"></div>
+    <div class="auth-foot">机组、缺陷和照片将统一保存在云端</div>
+  </div>
+</div>
+
+<!-- 弹窗容器 -->
+<div id="modalMask" class="modal-mask hidden">
+  <div id="modalBox" class="modal-box"></div>
+</div>
+
+<!-- 打印报告容器（仅打印时可见） -->
+<div id="printArea" class="print-only"></div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="js/cloud-config.js?v=1110c"></script>
+<script src="js/auth.js?v=1110"></script>
+<script src="js/dict.js?v=1110"></script>
+<script src="js/db.js?v=1110b"></script>
+<script src="js/viewer3d.js?v=1110"></script>
+<script src="js/app.js?v=1110h"></script>
+</body>
+</html>
