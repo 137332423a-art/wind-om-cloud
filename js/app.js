@@ -18,7 +18,7 @@ const App = {
     this.role = this.resolveRole();
     this.applyRoleUI();
     await this.reload();
-    if (this.isAdmin() && await this.ensureTransformerUnits68To134()) await this.reload();
+    if (!window.DEMO_MODE && this.isAdmin() && await this.ensureTransformerUnits68To134()) await this.reload();
     this.bindNav();
     this.bindEntryForm();
     this.bindDataPanel();
@@ -28,6 +28,7 @@ const App = {
   },
 
   resolveRole() {
+    if (window.DEMO_MODE) return 'admin';
     const email = String(Auth.session()?.user?.email || '').trim().toLowerCase();
     const admins = (window.CLOUD_CONFIG?.adminEmails || [])
       .map(item => String(item).trim().toLowerCase())
@@ -40,10 +41,25 @@ const App = {
   },
 
   applyRoleUI() {
+    const demoBanner = document.getElementById('demoBanner');
+    if (demoBanner) demoBanner.classList.toggle('hidden', !window.DEMO_MODE);
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) logoutBtn.classList.toggle('hidden', !!window.DEMO_MODE);
     const dataNav = document.querySelector('.nav-btn[data-view="data"]');
     if (dataNav) dataNav.classList.toggle('hidden', !this.isAdmin());
     const addUnitBtn = document.getElementById('addUnitBtn');
     if (addUnitBtn) addUnitBtn.classList.toggle('hidden', !this.isAdmin());
+    const demoResetBtn = document.getElementById('demoResetBtn');
+    if (demoResetBtn && window.DEMO_MODE) {
+      demoResetBtn.onclick = async () => {
+        if (!confirm('重置后会清空当前练习数据，并恢复 10 台风机和 10 台箱变。确定继续？')) return;
+        await DB.reset();
+        for (const url of this.photos.values()) URL.revokeObjectURL(url);
+        this.photos.clear();
+        this.currentUnitId = null;
+        await this.reload();
+      };
+    }
   },
 
   async reload() {

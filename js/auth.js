@@ -18,6 +18,7 @@ const Auth = {
   },
 
   configured() {
+    if (window.DEMO_MODE) return true;
     const cfg = this.config();
     const validUrl = /^https:\/\/.+/i.test(cfg.url) ||
       /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(cfg.url);
@@ -26,6 +27,14 @@ const Auth = {
   },
 
   session() {
+    if (window.DEMO_MODE) {
+      return {
+        access_token: 'demo',
+        refresh_token: 'demo',
+        expires_at: Date.now() + 86400000,
+        user: { id: 'demo-user', email: 'demo@local' }
+      };
+    }
     try {
       const value = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || 'null');
       return value && value.access_token ? value : null;
@@ -86,6 +95,7 @@ const Auth = {
   },
 
   async ensureSession() {
+    if (window.DEMO_MODE) return this.session();
     if (!this.configured()) throw this._error('请先配置云端项目地址和公开密钥', 'CONFIG_REQUIRED');
     let session = this.session();
     if (!session) throw this._error('请先登录', 'AUTH_REQUIRED');

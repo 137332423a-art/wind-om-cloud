@@ -21,6 +21,7 @@ html, body { height: 100%; font-family: "Microsoft YaHei", "PingFang SC", sans-s
 .badge { position: absolute; top: 0; right: 0; background: var(--c-critical); color: #fff; font-size: 11px; border-radius: 9px; padding: 1px 5px; }
 .logout-btn { border: 1px solid rgba(255,255,255,.4); background: transparent; color: #fff; border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
 .logout-btn:hover { background: rgba(255,255,255,.14); }
+.demo-banner { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 7px 16px; background: #fff4cc; border-bottom: 1px solid #ecd894; color: #6b5200; font-size: 12px; }
 
 /* 主布局 */
 #main { display: flex; flex: 1; overflow: hidden; }

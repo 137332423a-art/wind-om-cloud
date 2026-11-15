@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>风电智慧运维台账平台</title>
-<link rel="stylesheet" href="css/style.css?v=1110d">
+<link rel="stylesheet" href="css/style.css?v=1110e">
 </head>
 <body>
 <div id="app">
@@ -24,6 +24,11 @@
       <button id="logoutBtn" class="logout-btn" title="退出登录">退出</button>
     </div>
   </header>
+
+  <div id="demoBanner" class="demo-banner hidden">
+    <span>练习模式：数据只保存在当前浏览器，不会影响正式台账。</span>
+    <button id="demoResetBtn" class="btn sm">重置练习数据</button>
+  </div>
 
   <div id="main">
     <!-- 侧栏：机组树 -->
@@ -243,10 +248,11 @@
 <script src="vendor/three.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="js/cloud-config.js?v=1110c"></script>
-<script src="js/auth.js?v=1110"></script>
+<script src="js/demo-db.js?v=1110"></script>
+<script src="js/auth.js?v=1110b"></script>
 <script src="js/dict.js?v=1110"></script>
-<script src="js/db.js?v=1110b"></script>
+<script src="js/db.js?v=1110c"></script>
 <script src="js/viewer3d.js?v=1110"></script>
-<script src="js/app.js?v=1110h"></script>
+<script src="js/app.js?v=1110i"></script>
 </body>
 </html>

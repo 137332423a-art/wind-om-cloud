@@ -6,7 +6,7 @@
 
 const DB_VER = 2;
 
-const DB = {
+const CloudDB = {
   async open() {
     if (!Auth.configured()) {
       throw this._error('请先配置 Supabase 项目地址和公开密钥', 'CONFIG_REQUIRED');
@@ -355,3 +355,5 @@ const DB = {
     return error;
   }
 };
+
+const DB = window.DEMO_MODE ? DemoDB : CloudDB;
