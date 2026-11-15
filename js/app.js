@@ -10,6 +10,8 @@ const App = {
   viewer: null,
   role: 'operator',
   treeFilter: 'all',   // 侧栏类型页签：all / turbine / transformer
+  dashboardType: 'all',
+  statsType: 'all',
   entryUnitType: '',   // 缺陷录入设备类型筛选
   filters: { level: '', status: '', part: '' },
 
@@ -18,7 +20,7 @@ const App = {
     this.role = this.resolveRole();
     this.applyRoleUI();
     await this.reload();
-    if (!window.DEMO_MODE && this.isAdmin() && await this.ensureTransformerUnits68To134()) await this.reload();
+    if (!window.DEMO_MODE && this.isAdmin() && await this.ensureUnits68To134()) await this.reload();
     this.bindNav();
     this.bindEntryForm();
     this.bindDataPanel();
@@ -72,35 +74,54 @@ const App = {
     this.updateBell();
   },
 
-  async ensureTransformerUnits68To134() {
+  async ensureUnits68To134() {
     const start = 68;
     const end = 134;
     const farm = '彰北中心站';
     const taikaiNumbers = new Set([94, 115, 134]);
-    const existingNumbers = new Set(
+    const existingTransformerNumbers = new Set(
       this.units
         .filter(unit => unit.type === 'transformer')
         .map(unit => String(unit.name || '').match(/\d+/))
         .filter(Boolean)
         .map(match => Number(match[0]))
     );
+    const existingTurbineNumbers = new Set(
+      this.units
+        .filter(unit => unit.type === 'turbine')
+        .map(unit => String(unit.name || '').match(/\d+/))
+        .filter(Boolean)
+        .map(match => Number(match[0]))
+    );
     const missing = [];
     for (let number = start; number <= end; number++) {
-      if (existingNumbers.has(number)) continue;
-      missing.push({
-        id: uid(),
-        type: 'transformer',
-        brand: taikaiNumbers.has(number) ? 'taikai' : 'dongmeng',
-        name: `#${number}箱变`,
-        farm,
-        model: '',
-        createdAt: new Date().toISOString()
-      });
+      if (!existingTransformerNumbers.has(number)) {
+        missing.push({
+          id: uid(),
+          type: 'transformer',
+          brand: taikaiNumbers.has(number) ? 'taikai' : 'dongmeng',
+          name: `#${number}箱变`,
+          farm,
+          model: '',
+          createdAt: new Date().toISOString()
+        });
+      }
+      if (number >= 69 && !existingTurbineNumbers.has(number)) {
+        missing.push({
+          id: uid(),
+          type: 'turbine',
+          brand: '',
+          name: `#${number}风机`,
+          farm,
+          model: '',
+          createdAt: new Date().toISOString()
+        });
+      }
     }
     if (!missing.length) return false;
     try {
       await DB.putMany('units', missing);
-      console.info(`已补齐 ${missing.length} 台彰北中心站箱变`);
+      console.info(`已补齐 ${missing.length} 台彰北中心站设备`);
       return true;
     } catch (error) {
       console.error('补齐箱变失败', error);
@@ -182,16 +203,38 @@ const App = {
 
   /* ================= 驾驶舱 ================= */
   renderDashboard() {
+    const type = this.dashboardType || 'all';
+    const visibleUnits = type === 'all' ? this.units : this.units.filter(unit => unit.type === type);
+    const visibleIds = new Set(visibleUnits.map(unit => unit.id));
+    const visibleDefects = this.defects.filter(defect => visibleIds.has(defect.unitId));
     const counts = { 4: 0, 3: 0, 2: 0, 1: 0, 0: 0 };
-    const unitInfo = this.units.map(u => {
+    const unitInfo = visibleUnits.map(u => {
       const ds = this.defects.filter(d => d.unitId === u.id);
       const h = unitHealth(ds);
       counts[h]++;
       return { u, ds, h, open: ds.filter(d => d.status !== 'resolved') };
     });
 
+    const tabs = document.getElementById('dashboardTabs');
+    const tabDefs = [
+      { key: 'all', label: '全部', count: this.units.length },
+      { key: 'turbine', label: '风机', count: this.units.filter(unit => unit.type === 'turbine').length },
+      { key: 'transformer', label: '箱变', count: this.units.filter(unit => unit.type === 'transformer').length }
+    ];
+    tabs.innerHTML = tabDefs.map(item =>
+      `<button class="view-tab ${type === item.key ? 'active' : ''}" data-type="${item.key}">${item.label}<span class="cnt">${item.count}</span></button>`
+    ).join('');
+    tabs.querySelectorAll('[data-type]').forEach(button => {
+      button.onclick = () => {
+        this.dashboardType = button.dataset.type;
+        this.renderDashboard();
+      };
+    });
+
+    const turbineCount = this.units.filter(unit => unit.type === 'turbine').length;
+    const transformerCount = this.units.filter(unit => unit.type === 'transformer').length;
     document.getElementById('dashSummary').textContent =
-      `共 ${this.units.length} 台设备 · 未闭环缺陷 ${this.defects.filter(d => d.status !== 'resolved').length} 项`;
+      `风机 ${turbineCount} 台 · 箱变 ${transformerCount} 台 · 未闭环缺陷 ${visibleDefects.filter(d => d.status !== 'resolved').length} 项`;
 
     const hb = document.getElementById('healthBar');
     hb.innerHTML =
@@ -215,7 +258,7 @@ const App = {
         <div class="uc-row"><span>状态：<b style="color:${color}">${hName}</b></span><span>未闭环 ${open.length} / 累计 ${ds.length}</span></div>
         <div class="uc-chips">${chips}${open.length > 4 ? `<span class="chip" style="background:#90a4ae">+${open.length - 4}</span>` : ''}</div>
       </div>`;
-    }).join('') || '<div class="empty-tip">暂无机组，请先在左侧 ＋ 新增机组</div>';
+    }).join('') || `<div class="empty-tip">${type === 'all' ? '暂无机组，请先在左侧 ＋ 新增机组' : '当前分类暂无设备'}</div>`;
 
     cards.querySelectorAll('.unit-card').forEach(el => {
       el.onclick = () => { this.currentUnitId = el.dataset.id; this.renderSidebar(); this.showView('ledger'); this.renderLedger(); };
@@ -781,10 +824,47 @@ const App = {
   /* ================= 统计 ================= */
   renderStats() {
     const body = document.getElementById('statsBody');
-    if (!this.defects.length) { body.innerHTML = '<div class="empty-tip">暂无数据</div>'; return; }
+    const type = this.statsType || 'all';
+    const unitIdsByType = type === 'all'
+      ? null
+      : new Set(this.units.filter(unit => unit.type === type).map(unit => unit.id));
+    const dataDefects = unitIdsByType
+      ? this.defects.filter(defect => unitIdsByType.has(defect.unitId))
+      : this.defects;
+    const tabs = document.getElementById('statsTabs');
+    const tabDefs = [
+      { key: 'all', label: '全部', count: this.defects.length },
+      {
+        key: 'turbine',
+        label: '风机',
+        count: this.defects.filter(defect => {
+          const unit = this.units.find(item => item.id === defect.unitId);
+          return unit?.type === 'turbine';
+        }).length
+      },
+      {
+        key: 'transformer',
+        label: '箱变',
+        count: this.defects.filter(defect => {
+          const unit = this.units.find(item => item.id === defect.unitId);
+          return unit?.type === 'transformer';
+        }).length
+      }
+    ];
+    tabs.innerHTML = tabDefs.map(item =>
+      `<button class="view-tab ${type === item.key ? 'active' : ''}" data-type="${item.key}">${item.label}<span class="cnt">${item.count}</span></button>`
+    ).join('');
+    tabs.querySelectorAll('[data-type]').forEach(button => {
+      button.onclick = () => {
+        this.statsType = button.dataset.type;
+        this.renderStats();
+      };
+    });
+
+    if (!dataDefects.length) { body.innerHTML = '<div class="empty-tip">暂无数据</div>'; return; }
 
     const byLevel = {}, byPart = {}, byStatus = {}, byMonth = {};
-    this.defects.forEach(d => {
+    dataDefects.forEach(d => {
       byLevel[d.level] = (byLevel[d.level] || 0) + 1;
       const u = this.units.find(x => x.id === d.unitId);
       const pn = partName(u?.type, d.part);
@@ -807,14 +887,14 @@ const App = {
       .map(([k, v]) => bar(k, v, maxMonth, '#43a047')).join('');
 
     const resolved = byStatus.resolved || 0;
-    const rate = Math.round(resolved / this.defects.length * 100);
+    const rate = Math.round(resolved / dataDefects.length * 100);
 
     body.innerHTML = `
       <div class="stat-card"><h3>按严重等级</h3>
-        ${Object.keys(LEVELS).sort((a, b) => b - a).map(l => bar(LEVELS[l].name, byLevel[l] || 0, this.defects.length, LEVELS[l].color)).join('')}
+        ${Object.keys(LEVELS).sort((a, b) => b - a).map(l => bar(LEVELS[l].name, byLevel[l] || 0, dataDefects.length, LEVELS[l].color)).join('')}
       </div>
       <div class="stat-card"><h3>按处理状态（消缺率 ${rate}%）</h3>
-        ${STATUS_FLOW.map(s => bar(STATUS[s].name, byStatus[s] || 0, this.defects.length, STATUS[s].color)).join('')}
+        ${STATUS_FLOW.map(s => bar(STATUS[s].name, byStatus[s] || 0, dataDefects.length, STATUS[s].color)).join('')}
       </div>
       <div class="stat-card"><h3>高发部位 TOP10</h3>${partRows}</div>
       <div class="stat-card"><h3>月度缺陷趋势</h3>${monthRows || '<div class="empty-tip">无</div>'}</div>`;
