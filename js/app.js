@@ -813,7 +813,7 @@ const App = {
         <td>${await photoCells(d)}</td></tr>`);
     }
     document.getElementById('printArea').innerHTML = `
-      <h1>${esc(u.name)} 智慧运维台账（图文报告）</h1>
+      <h1>${esc(u.name)} · 睿源—数字化运维台账管理平台</h1>
       <div class="p-meta">${DEVICE_TYPES[u.type]?.name || ''}${u.type === 'transformer' ? ' · ' + brandName(u.brand) : ''} · ${esc(u.farm || '')} ${u.model ? '· ' + esc(u.model) : ''} ·
         当前状态：${h === 0 ? HEALTH_GOOD.name : LEVELS[h].name} · 累计缺陷 ${ds.length} 项 · 生成日期 ${todayStr()}</div>
       <table><thead><tr><th>部位</th><th>缺陷类型</th><th>等级</th><th>描述</th><th>状态</th><th>发现日期</th><th>填报人</th><th>照片</th></tr></thead>
